@@ -1,10 +1,10 @@
 {
   "name": "myuru",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Multi-provider AI agent orchestrator. Coordinate Claude, GPT, and Gemini agents to build software in parallel.",
   "main": "src/index.js",
   "bin": {
-    "myuru": "./bin/myuru.js"
+    "myuru": "bin/myuru.js"
   },
   "scripts": {
     "test": "node --test src/**/*.test.js",
@@ -26,7 +26,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Wittlesus/myuru"
+    "url": "git+https://github.com/Wittlesus/myuru.git"
   },
   "engines": {
     "node": ">=18.0.0"
