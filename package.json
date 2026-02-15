@@ -1,0 +1,37 @@
+{
+  "name": "myuru",
+  "version": "0.1.0",
+  "description": "Multi-provider AI agent orchestrator. Coordinate Claude, GPT, and Gemini agents to build software in parallel.",
+  "main": "src/index.js",
+  "bin": {
+    "myuru": "./bin/myuru.js"
+  },
+  "scripts": {
+    "test": "node --test src/**/*.test.js",
+    "start": "node bin/myuru.js"
+  },
+  "keywords": [
+    "ai",
+    "orchestrator",
+    "multi-agent",
+    "multi-provider",
+    "claude",
+    "openai",
+    "gemini",
+    "coding-agent",
+    "automation",
+    "cli"
+  ],
+  "author": "Wittlesus",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Wittlesus/myuru"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "commander": "^12.0.0"
+  }
+}
