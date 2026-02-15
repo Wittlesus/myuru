@@ -11,7 +11,7 @@ Multi-provider AI agent orchestrator. Coordinate Claude, GPT, and Gemini agents 
 - **Council Mode**: Agents deliberate in a chatroom, then execute tasks together
 - **Session Persistence**: Agents maintain context across invocations
 - **Terminal Dashboard**: Real-time ANSI UI showing agent status
-- **Tier System**: Free (2 sequential agents) / Pro (5 concurrent + config packs, $29 one-time)
+- **Concurrent Execution**: Run agents in parallel or sequentially
 
 ## Installation
 
@@ -84,11 +84,6 @@ Create `.myuru.json`:
   "maxConcurrent": 2
 }
 ```
-
-## Pricing
-
-**Free**: 2 sequential agents, basic reporting
-**Pro**: 5 concurrent agents, config packs, priority support — $29 one-time
 
 ## Requirements
 

@@ -4,8 +4,6 @@ const { createProvider } = require("../providers");
 const AgentRunner = require("../lib/agent-runner");
 const TaskDB = require("../lib/task-db");
 const Dashboard = require("../lib/dashboard");
-const { TierManager } = require("../lib/tiers");
-
 async function run(opts) {
   const cwd = process.cwd();
   const stateDir = path.join(cwd, ".myuru");
@@ -26,22 +24,12 @@ async function run(opts) {
   const agentCount = parseInt(opts.agents) || config.agents || 2;
   const budget = opts.budget || config.budget || "5";
   const maxTurns = config.maxTurns || 10;
-  const isPro = opts.pro || false;
+  const concurrent = opts.concurrent || config.concurrent || false;
 
-  // Tier enforcement
-  const tier = new TierManager(isPro ? "PRO" : "FREE");
-  const tierInfo = tier.info();
-
-  console.log(`MyUru v0.1.0 | ${tierInfo.tier} tier | ${providerName}/${model}`);
-  console.log(`Agents: ${agentCount} | Execution: ${tierInfo.concurrency}`);
+  const execMode = concurrent ? "concurrent" : "sequential";
+  console.log(`MyUru v0.1.0 | ${providerName}/${model}`);
+  console.log(`Agents: ${agentCount} | Execution: ${execMode}`);
   console.log("─".repeat(50));
-
-  try {
-    tier.enforceLimit(agentCount, isPro);
-  } catch (err) {
-    console.error(err.message);
-    process.exit(1);
-  }
 
   // Resolve task
   let task = opts.task;
@@ -104,7 +92,7 @@ async function run(opts) {
     const running = agents.filter(a => a.busy).length;
     const done = agents.filter(a => a.invocationCount > 0 && !a.busy).length;
     return [
-      `\x1b[36mMyUru\x1b[0m | ${providerName}/${model} | ${tierInfo.tier}`,
+      `\x1b[36mMyUru\x1b[0m | ${providerName}/${model} | ${execMode}`,
       `Task: ${task.substring(0, 60)}`,
       `Agents: ${running} running, ${done} done | ${elapsed}s elapsed`,
       "─".repeat(dashboard.cols),
@@ -140,11 +128,9 @@ async function run(opts) {
   };
 
   let results;
-  if (isPro && agentCount > 1) {
-    // Concurrent execution (PRO)
+  if (concurrent && agentCount > 1) {
     results = await Promise.all(agents.map((a, i) => runAgent(a, i)));
   } else {
-    // Sequential execution (FREE)
     results = [];
     for (let i = 0; i < agents.length; i++) {
       results.push(await runAgent(agents[i], i));

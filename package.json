@@ -1,6 +1,6 @@
 {
   "name": "myuru",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Multi-provider AI agent orchestrator. Coordinate Claude, GPT, and Gemini agents to build software in parallel.",
   "main": "src/index.js",
   "bin": {

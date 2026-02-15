@@ -28,7 +28,7 @@ program
   .option('--provider <name>', 'Single provider: claude, openai, gemini', 'claude')
   .option('--model <name>', 'Model override')
   .option('--agents <n>', 'Number of builder agents', '2')
-  .option('--pro', 'Enable Pro tier (concurrent execution, more agents)')
+  .option('--concurrent', 'Run agents concurrently instead of sequentially')
   .option('--budget <usd>', 'Max budget in USD')
   .option('--dry-run', 'Show what would run without executing')
   .action(async (opts) => {
