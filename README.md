@@ -96,10 +96,17 @@ export default {
 - Claude CLI (for Claude provider)
 - API keys for your chosen providers
 
+## Related Tools
+
+- **[RulesForge](https://github.com/Wittlesus/rulesforge)** — Auto-generate AI coding rules for any codebase
+- **[DepScope](https://github.com/Wittlesus/depscope)** — Check npm dependency health scores
+- **[ScopeGuard](https://github.com/Wittlesus/scopeguard)** — Prevent AI scope creep with session tracking
+- **[mcp-shipkit](https://github.com/Wittlesus/mcp-shipkit)** — Scaffold MCP servers for Claude Desktop in minutes
+
 ## License
 
 MIT - See LICENSE file
 
 ---
 
-Built by Wittlesus | [GitHub](https://github.com/Wittlesus/myuru)
+Built by [@WSDevGuy](https://x.com/WSDevGuy) | [GitHub](https://github.com/Wittlesus/myuru)
