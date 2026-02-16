@@ -27,7 +27,7 @@ async function run(opts) {
   const concurrent = opts.concurrent || config.concurrent || false;
 
   const execMode = concurrent ? "concurrent" : "sequential";
-  console.log(`MyUru v0.1.0 | ${providerName}/${model}`);
+  console.log(`MyUru v0.3.0 | ${providerName}/${model}`);
   console.log(`Agents: ${agentCount} | Execution: ${execMode}`);
   console.log("─".repeat(50));
 

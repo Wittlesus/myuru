@@ -2,7 +2,6 @@ const { spawn } = require("child_process");
 const path = require("path");
 const http = require("http");
 const CouncilServer = require("../lib/council-server");
-const { TierManager } = require("../lib/tiers");
 
 async function council(opts) {
   const topic = opts.topic;
@@ -14,15 +13,7 @@ async function council(opts) {
   const agentNames = (opts.agents || "Architect,Reviewer,Tester").split(",").map(a => a.trim());
   const maxRounds = parseInt(opts.rounds) || 3;
   const shouldExecute = opts.execute || false;
-
-  // Tier check
-  const tier = new TierManager("FREE");
-  try {
-    tier.enforceLimit(agentNames.length);
-  } catch (err) {
-    console.error(err.message);
-    process.exit(1);
-  }
+  const model = opts.model || "sonnet";
 
   console.log("MyUru Council");
   console.log("─".repeat(50));
@@ -79,7 +70,7 @@ async function council(opts) {
     delete env.CLAUDECODE;
 
     // Intentional spawn — core product functionality
-    const child = spawn("claude", ["--model", "haiku", "-p"], {
+    const child = spawn("claude", ["--model", model, "-p"], {
       stdio: ["pipe", "pipe", "pipe"],
       env,
       shell: true,
@@ -136,7 +127,7 @@ async function council(opts) {
     delete env.CLAUDECODE;
 
     const taskOutput = await new Promise(resolve => {
-      const child = spawn("claude", ["--model", "haiku", "-p"], {
+      const child = spawn("claude", ["--model", model, "-p"], {
         stdio: ["pipe", "pipe", "pipe"], env, shell: true,
       });
       child.stdin.write(extractPrompt);

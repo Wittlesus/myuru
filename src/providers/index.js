@@ -1,9 +1,11 @@
 const ClaudeProvider = require("./claude");
 const OpenAIProvider = require("./openai");
+const GeminiProvider = require("./gemini");
 
 const PROVIDERS = {
   claude: ClaudeProvider,
   openai: OpenAIProvider,
+  gemini: GeminiProvider,
 };
 
 function createProvider(name, opts = {}) {
@@ -14,4 +16,4 @@ function createProvider(name, opts = {}) {
   return new Provider(opts);
 }
 
-module.exports = { createProvider, ClaudeProvider, OpenAIProvider, PROVIDERS };
+module.exports = { createProvider, ClaudeProvider, OpenAIProvider, GeminiProvider, PROVIDERS };

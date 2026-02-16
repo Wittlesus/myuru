@@ -49,6 +49,7 @@ program
   .description('Start a council session — agents deliberate, then execute')
   .option('--topic <text>', 'Topic for council discussion')
   .option('--agents <names>', 'Comma-separated agent roles', 'Architect,Reviewer,Tester')
+  .option('--model <name>', 'Model for council agents', 'sonnet')
   .option('--rounds <n>', 'Max deliberation rounds', '3')
   .option('--execute', 'Auto-execute tasks after deliberation')
   .action(async (opts) => {
