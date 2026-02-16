@@ -1,26 +1,50 @@
 {
   "name": "myuru",
-  "version": "0.3.1",
-  "description": "Multi-provider AI agent orchestrator. Coordinate Claude, GPT, and Gemini agents to build software in parallel.",
-  "main": "src/index.js",
-  "bin": {
-    "myuru": "bin/myuru.js"
+  "version": "2.0.0-alpha.1",
+  "description": "TypeScript-first multi-agent orchestration framework. Coordinate AI agents across any provider with built-in tracing, intelligent routing, and production-grade reliability.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./cli": {
+      "types": "./dist/cli/index.d.ts",
+      "import": "./dist/cli/index.js"
+    }
   },
+  "bin": {
+    "myuru": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "test": "node --test src/**/*.test.js",
-    "start": "node bin/myuru.js"
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "node --test --import tsx src/**/*.test.ts",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "ai",
-    "orchestrator",
+    "agents",
     "multi-agent",
-    "multi-provider",
+    "orchestration",
+    "llm",
+    "typescript",
     "claude",
     "openai",
     "gemini",
-    "coding-agent",
-    "automation",
-    "cli"
+    "mcp",
+    "pipeline",
+    "tracing",
+    "observability",
+    "provider-agnostic"
   ],
   "author": "Wittlesus",
   "license": "MIT",
@@ -29,9 +53,36 @@
     "url": "git+https://github.com/Wittlesus/myuru.git"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "dependencies": {
-    "commander": "^12.0.0"
+    "ai": "^4.0.0",
+    "commander": "^12.0.0",
+    "nanoid": "^5.0.0",
+    "zod": "^3.23.0"
+  },
+  "peerDependencies": {
+    "@ai-sdk/anthropic": ">=1.0.0",
+    "@ai-sdk/google": ">=1.0.0",
+    "@ai-sdk/openai": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@ai-sdk/anthropic": {
+      "optional": true
+    },
+    "@ai-sdk/openai": {
+      "optional": true
+    },
+    "@ai-sdk/google": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@ai-sdk/anthropic": "^1.0.0",
+    "@ai-sdk/google": "^1.0.0",
+    "@ai-sdk/openai": "^1.0.0",
+    "@types/node": "^25.2.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.0"
   }
 }
