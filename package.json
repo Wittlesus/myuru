@@ -16,7 +16,7 @@
     }
   },
   "bin": {
-    "myuru": "./dist/cli/index.js"
+    "myuru": "dist/cli/index.js"
   },
   "files": [
     "dist",
