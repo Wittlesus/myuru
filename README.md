@@ -62,7 +62,7 @@ myuru status
 |---------|-------------|
 | `myuru init` | Initialize project with config |
 | `myuru run --task "..."` | Run agents on a task |
-| `myuru council --topic "..." --agents "..."` | Start council deliberation |
+| `myuru council --topic "..." --agents "..." --model sonnet` | Start council deliberation |
 | `myuru status` | View task progress |
 
 ## Configuration
@@ -72,17 +72,22 @@ Set environment variables:
 ```bash
 export OPENAI_API_KEY="sk-..."
 export ANTHROPIC_API_KEY="sk-ant-..."
-export GOOGLE_API_KEY="..."
+export GEMINI_API_KEY="..."
 ```
 
-Create `.myuru.json`:
+Create `myuru.config.mjs`:
 
-```json
-{
-  "tier": "free",
-  "providers": ["claude", "openai"],
-  "maxConcurrent": 2
-}
+```js
+export default {
+  provider: "claude",
+  model: "sonnet",
+  agents: 2,
+  concurrent: false,
+  roles: {
+    Builder: "You are a software engineer. Write clean, working code.",
+    Reviewer: "You review code for bugs, security issues, and quality.",
+  },
+};
 ```
 
 ## Requirements

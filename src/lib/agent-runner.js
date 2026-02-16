@@ -62,7 +62,17 @@ class AgentRunner {
     }
   }
 
-  _run(prompt) {
+  async _run(prompt) {
+    // API-based providers (OpenAI, Gemini) use invoke() directly
+    if (typeof this.provider.invoke === "function") {
+      const output = await this.provider.invoke(prompt, {
+        model: this.model,
+        systemPrompt: this.systemPrompt,
+      });
+      return output;
+    }
+
+    // CLI-based providers (Claude) use buildCommand() + spawn
     return new Promise((resolve, reject) => {
       const tmpDir = path.join(os.tmpdir(), "myuru-agents");
       fs.mkdirSync(tmpDir, { recursive: true });
