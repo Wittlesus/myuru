@@ -1,12 +1,18 @@
-import { tool as aiTool } from 'ai';
 import type { ZodSchema } from 'zod';
-import type { CoreTool } from 'ai';
+
+/**
+ * The shape of a tool that the AI SDK accepts.
+ * We define this ourselves to avoid fighting AI SDK v6 overload generics.
+ * At runtime, tool() is literally an identity function, so this is equivalent.
+ */
+type AiTool = {
+  description: string;
+  parameters: ZodSchema;
+  execute: (input: any) => Promise<any>;
+};
 
 /**
  * Define a type-safe tool for MyUru agents.
- *
- * This is a thin wrapper around the Vercel AI SDK's `tool()` function
- * that adds our naming convention and future extensibility.
  *
  * ```ts
  * import { defineTool } from 'myuru';
@@ -29,23 +35,19 @@ export function defineTool<TInput, TOutput>(config: {
   description: string;
   parameters: ZodSchema<TInput>;
   execute: (input: TInput) => Promise<TOutput>;
-}): NamedTool<TInput, TOutput> {
-  const coreTool = aiTool({
+}): NamedTool {
+  return {
     description: config.description,
     parameters: config.parameters,
-    execute: config.execute as (input: TInput) => Promise<TOutput>,
-  });
-
-  return {
-    ...coreTool,
+    execute: config.execute as (input: any) => Promise<any>,
     toolName: config.name,
   };
 }
 
 /**
- * A CoreTool with an attached name for identification in traces and pipelines.
+ * A tool with an attached name for identification in traces and pipelines.
  */
-export type NamedTool<TInput = unknown, TOutput = unknown> = CoreTool & {
+export type NamedTool = AiTool & {
   toolName: string;
 };
 
@@ -53,8 +55,8 @@ export type NamedTool<TInput = unknown, TOutput = unknown> = CoreTool & {
  * Convert a record of NamedTools to the format expected by the AI SDK.
  * Keys are the tool names.
  */
-export function toolsToRecord(tools: NamedTool[]): Record<string, CoreTool> {
-  const record: Record<string, CoreTool> = {};
+export function toolsToRecord(tools: NamedTool[]): Record<string, AiTool> {
+  const record: Record<string, AiTool> = {};
   for (const t of tools) {
     record[t.toolName] = t;
   }

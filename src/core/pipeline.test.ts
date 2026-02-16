@@ -3,29 +3,29 @@ import assert from 'node:assert/strict';
 import { Pipeline, sequential, parallel } from './pipeline.js';
 import { ApprovalDeniedError, BudgetExceededError } from './errors.js';
 
-// Minimal mock model
+// Minimal mock model (LanguageModelV2 spec)
 function createMockModel(response: string = 'mock response') {
   return {
-    specificationVersion: 'v1' as const,
+    specificationVersion: 'v2' as const,
     provider: 'test',
     modelId: 'test-model',
-    defaultObjectGenerationMode: 'json' as const,
-    supportsStructuredOutputs: false,
+    supportedUrls: {},
     doGenerate: async () => ({
-      text: response,
+      content: [{ type: 'text' as const, text: response }],
       finishReason: 'stop' as const,
-      usage: { promptTokens: 10, completionTokens: 5 },
-      rawCall: { rawPrompt: '', rawSettings: {} },
+      usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+      warnings: [],
     }),
     doStream: async () => ({
       stream: new ReadableStream({
         start(controller) {
-          controller.enqueue({ type: 'text-delta' as const, textDelta: response });
-          controller.enqueue({ type: 'finish' as const, finishReason: 'stop' as const, usage: { promptTokens: 10, completionTokens: 5 } });
+          controller.enqueue({ type: 'text-start' as const, id: 'text-0' });
+          controller.enqueue({ type: 'text-delta' as const, id: 'text-0', delta: response });
+          controller.enqueue({ type: 'text-end' as const, id: 'text-0' });
+          controller.enqueue({ type: 'finish' as const, finishReason: 'stop' as const, usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 } });
           controller.close();
         },
       }),
-      rawCall: { rawPrompt: '', rawSettings: {} },
     }),
   };
 }

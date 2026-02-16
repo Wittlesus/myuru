@@ -1,4 +1,4 @@
-import { generateText, streamText, type CoreTool } from 'ai';
+import { generateText, streamText, stepCountIs } from 'ai';
 import type {
   Model,
   AgentConfig,
@@ -42,7 +42,7 @@ export class Agent {
   readonly name: string;
   readonly model: Model;
   readonly instructions: string;
-  readonly tools: Record<string, CoreTool>;
+  readonly tools: Record<string, unknown>;
   readonly maxSteps: number;
   readonly budgetPerRun?: number;
   readonly onBeforeToolCall?: (toolName: string, args: unknown) => boolean | Promise<boolean>;
@@ -59,7 +59,7 @@ export class Agent {
     if (config.tools) {
       this.tools = {};
       for (const [key, val] of Object.entries(config.tools)) {
-        this.tools[key] = val as unknown as CoreTool;
+        this.tools[key] = val as unknown;
       }
     } else {
       this.tools = {};
@@ -71,7 +71,7 @@ export class Agent {
    */
   static create(config: Omit<AgentConfig, 'tools'> & { tools?: NamedTool[] }): Agent {
     const toolRecord = config.tools ? toolsToRecord(config.tools) : {};
-    return new Agent({ ...config, tools: toolRecord as AgentConfig['tools'] });
+    return new Agent({ ...config, tools: toolRecord as unknown as AgentConfig['tools'] });
   }
 
   /**
@@ -92,14 +92,14 @@ export class Agent {
         model: this.model,
         system,
         prompt: input,
-        tools: Object.keys(this.tools).length > 0 ? this.tools : undefined,
-        maxSteps,
+        tools: Object.keys(this.tools).length > 0 ? (this.tools as any) : undefined,
+        stopWhen: stepCountIs(maxSteps),
         abortSignal: options?.signal,
         onStepFinish: (stepResult: Record<string, unknown>) => {
-          const usage = stepResult.usage as { promptTokens?: number; completionTokens?: number } | undefined;
+          const usage = stepResult.usage as { inputTokens?: number; outputTokens?: number } | undefined;
           const modelId = this.extractModelId();
-          const promptTokens = usage?.promptTokens ?? 0;
-          const completionTokens = usage?.completionTokens ?? 0;
+          const promptTokens = usage?.inputTokens ?? 0;
+          const completionTokens = usage?.outputTokens ?? 0;
           const stepCost = estimateCost(modelId, promptTokens, completionTokens);
           runCost += stepCost;
 
@@ -161,8 +161,8 @@ export class Agent {
       model: this.model,
       system,
       prompt: input,
-      tools: Object.keys(this.tools).length > 0 ? this.tools : undefined,
-      maxSteps,
+      tools: Object.keys(this.tools).length > 0 ? (this.tools as any) : undefined,
+      stopWhen: stepCountIs(maxSteps),
       abortSignal: options?.signal,
       onStepFinish: (stepResult: Record<string, unknown>) => {
         const usage = stepResult.usage as { promptTokens?: number; completionTokens?: number } | undefined;
@@ -213,7 +213,7 @@ export class Agent {
 
   // Use Record<string, unknown> to avoid AI SDK generic type complexity
   private mapStep(stepResult: Record<string, unknown>, index: number): StepResult {
-    const usage = stepResult.usage as { promptTokens?: number; completionTokens?: number } | undefined;
+    const usage = stepResult.usage as { inputTokens?: number; outputTokens?: number } | undefined;
     const rawToolCalls = stepResult.toolCalls as Array<{ toolCallId: string; toolName: string; args: unknown }> | undefined;
     const rawToolResults = stepResult.toolResults as Array<{ toolCallId: string; toolName: string; args: unknown; result: unknown }> | undefined;
 
@@ -234,8 +234,8 @@ export class Agent {
       stepNumber: index,
       type: toolCalls.length > 0 ? 'tool-call' : 'text',
       finishReason: stepResult.finishReason as string,
-      promptTokens: usage?.promptTokens ?? 0,
-      completionTokens: usage?.completionTokens ?? 0,
+      promptTokens: usage?.inputTokens ?? 0,
+      completionTokens: usage?.outputTokens ?? 0,
       text: (stepResult.text as string) || undefined,
       toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       toolResults: toolResults.length > 0 ? toolResults : undefined,

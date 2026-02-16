@@ -72,15 +72,15 @@ async function resolveModel(provider: string, modelName?: string): Promise<Model
   switch (provider) {
     case 'anthropic': {
       const { anthropic } = await import('@ai-sdk/anthropic');
-      return anthropic(modelName ?? 'claude-sonnet-4-5');
+      return anthropic(modelName ?? 'claude-sonnet-4-5') as unknown as Model;
     }
     case 'openai': {
       const { openai } = await import('@ai-sdk/openai');
-      return openai(modelName ?? 'gpt-4o');
+      return openai(modelName ?? 'gpt-4o') as unknown as Model;
     }
     case 'google': {
       const { google } = await import('@ai-sdk/google');
-      return google(modelName ?? 'gemini-2.0-flash');
+      return google(modelName ?? 'gemini-2.0-flash') as unknown as Model;
     }
     default:
       throw new Error(`Unknown provider: ${provider}. Use: anthropic, openai, google`);

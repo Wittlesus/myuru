@@ -1,9 +1,9 @@
-import type { LanguageModelV1 } from 'ai';
+import type { LanguageModel } from 'ai';
 import type { ZodSchema } from 'zod';
 
 // ── Model Types ──
 
-export type Model = LanguageModelV1;
+export type Model = LanguageModel;
 
 export type ModelConfig = {
   model: Model;

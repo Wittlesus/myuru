@@ -5,23 +5,22 @@ import { defineTool } from './tool.js';
 import { z } from 'zod';
 import { BudgetExceededError, AgentError } from './errors.js';
 
-// Mock model that implements LanguageModelV1 interface minimally
+// Mock model that implements LanguageModelV2 interface minimally
 function createMockModel(responses: string[] = ['Hello!']) {
   let callCount = 0;
   return {
-    specificationVersion: 'v1' as const,
+    specificationVersion: 'v2' as const,
     provider: 'test',
     modelId: 'test-model',
-    defaultObjectGenerationMode: 'json' as const,
-    supportsStructuredOutputs: false,
+    supportedUrls: {},
     doGenerate: async () => {
       const text = responses[callCount] ?? responses[responses.length - 1];
       callCount++;
       return {
-        text,
+        content: [{ type: 'text' as const, text }],
         finishReason: 'stop' as const,
-        usage: { promptTokens: 10, completionTokens: 5 },
-        rawCall: { rawPrompt: '', rawSettings: {} },
+        usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+        warnings: [],
       };
     },
     doStream: async () => {
@@ -31,18 +30,26 @@ function createMockModel(responses: string[] = ['Hello!']) {
         stream: new ReadableStream({
           start(controller) {
             controller.enqueue({
+              type: 'text-start' as const,
+              id: 'text-0',
+            });
+            controller.enqueue({
               type: 'text-delta' as const,
-              textDelta: text,
+              id: 'text-0',
+              delta: text,
+            });
+            controller.enqueue({
+              type: 'text-end' as const,
+              id: 'text-0',
             });
             controller.enqueue({
               type: 'finish' as const,
               finishReason: 'stop' as const,
-              usage: { promptTokens: 10, completionTokens: 5 },
+              usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
             });
             controller.close();
           },
         }),
-        rawCall: { rawPrompt: '', rawSettings: {} },
       };
     },
   };
