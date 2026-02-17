@@ -1,6 +1,6 @@
 {
   "name": "myuru",
-  "version": "2.0.0-alpha.2",
+  "version": "2.0.0-alpha.3",
   "description": "TypeScript-first multi-agent orchestration framework. Coordinate AI agents across any provider with built-in tracing, intelligent routing, and production-grade reliability.",
   "type": "module",
   "main": "./dist/index.js",
@@ -62,9 +62,9 @@
     "zod": "^3.23.0"
   },
   "peerDependencies": {
-    "@ai-sdk/anthropic": ">=1.0.0",
-    "@ai-sdk/google": ">=1.0.0",
-    "@ai-sdk/openai": ">=1.0.0"
+    "@ai-sdk/anthropic": ">=3.0.0",
+    "@ai-sdk/google": ">=3.0.0",
+    "@ai-sdk/openai": ">=3.0.0"
   },
   "peerDependenciesMeta": {
     "@ai-sdk/anthropic": {
@@ -78,9 +78,9 @@
     }
   },
   "devDependencies": {
-    "@ai-sdk/anthropic": "^1.0.0",
-    "@ai-sdk/google": "^1.0.0",
-    "@ai-sdk/openai": "^1.0.0",
+    "@ai-sdk/anthropic": "^3.0.0",
+    "@ai-sdk/google": "^3.0.0",
+    "@ai-sdk/openai": "^3.0.0",
     "@types/node": "^25.2.3",
     "tsx": "^4.21.0",
     "typescript": "^5.7.0"

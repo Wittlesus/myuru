@@ -165,10 +165,10 @@ export class Agent {
       stopWhen: stepCountIs(maxSteps),
       abortSignal: options?.signal,
       onStepFinish: (stepResult: Record<string, unknown>) => {
-        const usage = stepResult.usage as { promptTokens?: number; completionTokens?: number } | undefined;
+        const usage = stepResult.usage as { inputTokens?: number; outputTokens?: number } | undefined;
         const modelId = this.extractModelId();
-        const promptTokens = usage?.promptTokens ?? 0;
-        const completionTokens = usage?.completionTokens ?? 0;
+        const promptTokens = usage?.inputTokens ?? 0;
+        const completionTokens = usage?.outputTokens ?? 0;
         const stepCost = estimateCost(modelId, promptTokens, completionTokens);
         runCost += stepCost;
 

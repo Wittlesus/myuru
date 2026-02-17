@@ -1,13 +1,13 @@
 import type { ZodSchema } from 'zod';
 
 /**
- * The shape of a tool that the AI SDK accepts.
- * We define this ourselves to avoid fighting AI SDK v6 overload generics.
- * At runtime, tool() is literally an identity function, so this is equivalent.
+ * The shape of a tool that the AI SDK v6 accepts.
+ * AI SDK v6 reads `inputSchema` (not `parameters`) when preparing tools for providers.
+ * See: ai/src/prompt/prepare-tools-and-tool-choice.ts line 1765
  */
 type AiTool = {
   description: string;
-  parameters: ZodSchema;
+  inputSchema: ZodSchema;
   execute: (input: any) => Promise<any>;
 };
 
@@ -38,7 +38,7 @@ export function defineTool<TInput, TOutput>(config: {
 }): NamedTool {
   return {
     description: config.description,
-    parameters: config.parameters,
+    inputSchema: config.parameters,
     execute: config.execute as (input: any) => Promise<any>,
     toolName: config.name,
   };
