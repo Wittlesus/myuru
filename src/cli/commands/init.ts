@@ -4,7 +4,21 @@ import * as path from 'node:path';
 export async function initCommand(opts: { dir: string }): Promise<void> {
   const dir = path.resolve(opts.dir);
 
-  console.log(`\nMyUru v2 — Initializing project in ${dir}\n`);
+  console.log(`\nMyUru — Initializing project in ${dir}\n`);
+
+  // Create .myuru.md project context file
+  const contextPath = path.join(dir, '.myuru.md');
+  if (!fs.existsSync(contextPath)) {
+    fs.writeFileSync(contextPath, PROJECT_CONTEXT_TEMPLATE);
+    console.log('  Created .myuru.md (project context — loaded every session)');
+  } else {
+    console.log('  .myuru.md already exists, skipping');
+  }
+
+  // Create .myuru/ state directory
+  const stateDir = path.join(dir, '.myuru');
+  fs.mkdirSync(stateDir, { recursive: true });
+  console.log('  Created .myuru/ (state directory)');
 
   // Create config file
   const configPath = path.join(dir, 'myuru.config.ts');
@@ -26,26 +40,46 @@ export async function initCommand(opts: { dir: string }): Promise<void> {
     console.log('  Created agents/researcher.ts');
   }
 
-  // Create .myuru directory for state
-  const stateDir = path.join(dir, '.myuru');
-  fs.mkdirSync(stateDir, { recursive: true });
-  console.log('  Created .myuru/ (state directory)');
-
   // Add to .gitignore if it exists
   const gitignorePath = path.join(dir, '.gitignore');
   if (fs.existsSync(gitignorePath)) {
     const content = fs.readFileSync(gitignorePath, 'utf-8');
-    if (!content.includes('.myuru')) {
+    if (!content.includes('.myuru/')) {
       fs.appendFileSync(gitignorePath, '\n# MyUru state\n.myuru/\n');
       console.log('  Added .myuru/ to .gitignore');
     }
   }
 
   console.log('\nDone! Next steps:');
-  console.log('  1. Set your API key: export ANTHROPIC_API_KEY=sk-ant-...');
-  console.log('  2. Edit myuru.config.ts to configure your agents');
-  console.log('  3. Run: myuru run --task "Your task here"\n');
+  console.log('  1. Edit .myuru.md to describe your project');
+  console.log('  2. Set your API key: export ANTHROPIC_API_KEY=sk-ant-...');
+  console.log('  3. Run: myuru\n');
 }
+
+const PROJECT_CONTEXT_TEMPLATE = `# Project Context
+
+<!-- MyUru loads this file into every session automatically. -->
+<!-- Describe your project so the agent understands your codebase. -->
+
+## About This Project
+
+<!-- What is this project? What does it do? -->
+
+## Tech Stack
+
+<!-- e.g. Next.js 15, Prisma, Tailwind CSS, PostgreSQL -->
+
+## Important Rules
+
+<!-- Things the agent should always or never do. Examples: -->
+<!-- - Never modify package.json without asking -->
+<!-- - Use the existing logger in src/lib/logger.ts -->
+<!-- - All API routes go in src/app/api/ -->
+
+## Key Files
+
+<!-- Important files the agent should know about -->
+`;
 
 const CONFIG_TEMPLATE = `import { type AgentConfig } from 'myuru';
 

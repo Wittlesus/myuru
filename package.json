@@ -1,6 +1,6 @@
 {
   "name": "myuru",
-  "version": "2.0.0-alpha.4",
+  "version": "2.0.0-alpha.5",
   "description": "AI agent for your terminal. Read files, run commands, write code — with any LLM provider. BYO API key.",
   "type": "module",
   "main": "./dist/index.js",
