@@ -3,13 +3,23 @@
 import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
 import { runCommand } from './commands/run.js';
+import { chatCommand } from './commands/chat.js';
 
 const program = new Command();
 
 program
   .name('myuru')
-  .description('TypeScript-first multi-agent orchestration framework')
-  .version('2.0.0-alpha.1');
+  .description('AI agent with file system and shell access. Works with any provider.')
+  .version('2.0.0-alpha.4');
+
+program
+  .command('chat', { isDefault: true })
+  .description('Start an interactive chat session (default)')
+  .option('-p, --provider <provider>', 'Provider (anthropic, openai, google)')
+  .option('-m, --model <model>', 'Model to use (e.g. claude-sonnet-4-5)')
+  .option('--max-steps <n>', 'Maximum agent steps per turn', '25')
+  .option('--budget <usd>', 'Max budget per turn in USD')
+  .action(chatCommand);
 
 program
   .command('init')
@@ -19,7 +29,7 @@ program
 
 program
   .command('run')
-  .description('Run an agent or pipeline')
+  .description('Run a one-shot agent task')
   .requiredOption('-t, --task <task>', 'Task description')
   .option('-c, --config <path>', 'Config file path', 'myuru.config.ts')
   .option('-m, --model <model>', 'Model to use (e.g. claude-sonnet-4-5)')

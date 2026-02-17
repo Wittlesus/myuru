@@ -1,10 +1,12 @@
 import { generateText, streamText, stepCountIs } from 'ai';
+import type { ModelMessage } from '@ai-sdk/provider-utils';
 import type {
   Model,
   AgentConfig,
   RunOptions,
   StepResult,
   AgentResult,
+  ChatResult,
   UsageSummary,
   ToolCallRecord,
   ToolResultRecord,
@@ -197,6 +199,124 @@ export class Agent {
       steps,
       usage,
       trace: options?.trace ? trace.toRecord() : undefined,
+    };
+  }
+
+  /**
+   * Run with full message history for multi-turn conversations.
+   * Returns responseMessages to append to history for the next turn.
+   */
+  async chat(messages: ModelMessage[], options?: RunOptions): Promise<ChatResult> {
+    const trace = new Trace(this.name);
+    const steps: StepResult[] = [];
+    let runCost = 0;
+
+    const system = this.buildSystemPrompt(options?.context);
+    const maxSteps = options?.maxSteps ?? this.maxSteps;
+
+    try {
+      const result = await generateText({
+        model: this.model,
+        system,
+        messages,
+        tools: Object.keys(this.tools).length > 0 ? (this.tools as any) : undefined,
+        stopWhen: stepCountIs(maxSteps),
+        abortSignal: options?.signal,
+        onStepFinish: (stepResult: Record<string, unknown>) => {
+          const usage = stepResult.usage as { inputTokens?: number; outputTokens?: number } | undefined;
+          const modelId = this.extractModelId();
+          const promptTokens = usage?.inputTokens ?? 0;
+          const completionTokens = usage?.outputTokens ?? 0;
+          const stepCost = estimateCost(modelId, promptTokens, completionTokens);
+          runCost += stepCost;
+
+          const step = this.mapStep(stepResult, steps.length);
+          steps.push(step);
+          trace.addStep(step);
+          trace.addCost(stepCost);
+          options?.onStep?.(step);
+
+          if (this.budgetPerRun && runCost > this.budgetPerRun) {
+            throw new BudgetExceededError(runCost, this.budgetPerRun);
+          }
+        },
+      });
+
+      const usage = this.summarizeUsage(steps, runCost);
+      trace.complete(result.text);
+
+      return {
+        text: result.text,
+        steps,
+        usage,
+        trace: options?.trace ? trace.toRecord() : undefined,
+        responseMessages: result.response.messages as unknown[],
+      };
+    } catch (error) {
+      if (error instanceof BudgetExceededError) throw error;
+      throw new AgentError(
+        error instanceof Error ? error.message : String(error),
+        this.name,
+        error instanceof Error ? error : undefined,
+      );
+    }
+  }
+
+  /**
+   * Stream with full message history. Returns responseMessages for conversation continuity.
+   */
+  async *chatStream(
+    messages: ModelMessage[],
+    options?: RunOptions,
+  ): AsyncGenerator<string, ChatResult> {
+    const trace = new Trace(this.name);
+    const steps: StepResult[] = [];
+    let runCost = 0;
+    let finalText = '';
+
+    const system = this.buildSystemPrompt(options?.context);
+    const maxSteps = options?.maxSteps ?? this.maxSteps;
+
+    const result = streamText({
+      model: this.model,
+      system,
+      messages,
+      tools: Object.keys(this.tools).length > 0 ? (this.tools as any) : undefined,
+      stopWhen: stepCountIs(maxSteps),
+      abortSignal: options?.signal,
+      onStepFinish: (stepResult: Record<string, unknown>) => {
+        const usage = stepResult.usage as { inputTokens?: number; outputTokens?: number } | undefined;
+        const modelId = this.extractModelId();
+        const promptTokens = usage?.inputTokens ?? 0;
+        const completionTokens = usage?.outputTokens ?? 0;
+        const stepCost = estimateCost(modelId, promptTokens, completionTokens);
+        runCost += stepCost;
+
+        const step = this.mapStep(stepResult, steps.length);
+        steps.push(step);
+        trace.addStep(step);
+        trace.addCost(stepCost);
+        options?.onStep?.(step);
+      },
+    });
+
+    for await (const chunk of result.textStream) {
+      finalText += chunk;
+      yield chunk;
+    }
+
+    const usage = this.summarizeUsage(steps, runCost);
+    trace.complete(finalText);
+
+    // Get response messages for conversation history
+    const response = await result.response;
+
+    return {
+      text: finalText,
+      steps,
+      usage,
+      trace: options?.trace ? trace.toRecord() : undefined,
+      responseMessages: response.messages as unknown[],
     };
   }
 

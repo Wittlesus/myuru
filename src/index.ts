@@ -20,6 +20,9 @@ export {
 } from './core/errors.js';
 
 // Types
+// Built-in tools
+export { builtinTools } from './tools/index.js';
+
 export type {
   Model,
   ModelConfig,
@@ -28,6 +31,7 @@ export type {
   RunOptions,
   StepResult,
   AgentResult,
+  ChatResult,
   UsageSummary,
   CostTable,
   TraceRecord,

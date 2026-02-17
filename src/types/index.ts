@@ -79,6 +79,11 @@ export type AgentResult = {
   trace?: TraceRecord;
 };
 
+export type ChatResult = AgentResult & {
+  /** Response messages to append to conversation history for multi-turn chat */
+  responseMessages: unknown[];
+};
+
 // ── Usage / Cost Types ──
 
 export type UsageSummary = {
