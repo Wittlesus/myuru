@@ -77,6 +77,119 @@ function saveLastSession(cwd: string, messages: unknown[], usage: UsageSummary):
   fs.writeFileSync(path.join(dir, 'last-session.md'), lines.join('\n'), 'utf-8');
 }
 
+// ── Session memory (structured logs saved at compact time) ──
+
+function getSessionsDir(cwd: string): string {
+  const dir = path.join(cwd, '.myuru', 'sessions');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function makeTimestamp(): string {
+  const d = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}-${pad(d.getMinutes())}`;
+}
+
+function saveSessionLog(cwd: string, structuredSummary: string, msgCount: number, usage: UsageSummary): string {
+  const sessionsDir = getSessionsDir(cwd);
+  const timestamp = makeTimestamp();
+  const filename = `${timestamp}.md`;
+
+  const header = [
+    `# Session Log — ${new Date().toISOString()}`,
+    `**Messages**: ${msgCount} | **Tokens**: ${usage.totalTokens} | **Cost**: $${usage.estimatedCostUsd.toFixed(4)}`,
+    '',
+  ].join('\n');
+
+  fs.writeFileSync(path.join(sessionsDir, filename), header + structuredSummary, 'utf-8');
+
+  // Update index — one-line summary per compaction for cheap scanning
+  updateSessionIndex(cwd, timestamp, msgCount, structuredSummary);
+
+  return filename;
+}
+
+function updateSessionIndex(cwd: string, timestamp: string, msgCount: number, summary: string): void {
+  const indexPath = path.join(getSessionsDir(cwd), 'index.md');
+
+  // Extract first meaningful line from summary as a topic hint
+  const topicLine = summary
+    .split('\n')
+    .find(l => l.startsWith('- ') || (l.length > 5 && !l.startsWith('#') && !l.startsWith('*')));
+  const topic = topicLine
+    ? topicLine.replace(/^-\s*/, '').slice(0, 80)
+    : 'session';
+
+  const entry = `${timestamp} | ${msgCount} msgs | ${topic}\n`;
+
+  // Create or append
+  if (fs.existsSync(indexPath)) {
+    fs.appendFileSync(indexPath, entry, 'utf-8');
+  } else {
+    fs.writeFileSync(indexPath, '# Session Log Index\n\n' + entry, 'utf-8');
+  }
+}
+
+function loadSessionIndex(cwd: string): string | undefined {
+  const indexPath = path.join(cwd, '.myuru', 'sessions', 'index.md');
+  if (!fs.existsSync(indexPath)) return undefined;
+  try {
+    const content = fs.readFileSync(indexPath, 'utf-8').trim();
+    return content || undefined;
+  } catch { return undefined; }
+}
+
+// ── Context size estimation ──
+
+function getContextLimit(modelName: string): number {
+  const name = modelName.toLowerCase();
+  if (name.includes('claude')) return 200000;
+  if (name.includes('gpt-4o-mini')) return 128000;
+  if (name.includes('gpt-4o')) return 128000;
+  if (name.includes('gpt-4')) return 128000;
+  if (name.includes('gemini')) return 1000000;
+  return 128000;
+}
+
+function estimateContextTokens(messages: unknown[], systemPromptLength: number): number {
+  let totalChars = systemPromptLength;
+  for (const msg of messages) {
+    const m = msg as { content?: unknown };
+    if (typeof m.content === 'string') {
+      totalChars += m.content.length;
+    } else if (Array.isArray(m.content)) {
+      for (const part of m.content) {
+        if (typeof part === 'string') totalChars += part.length;
+        else if (part && typeof part === 'object' && 'text' in part) {
+          totalChars += String((part as { text: string }).text).length;
+        }
+      }
+    }
+  }
+  return Math.ceil(totalChars / 4); // ~4 chars per token rough estimate
+}
+
+// ── Compact extraction prompt ──
+
+const EXTRACTION_PROMPT = `Analyze our entire conversation and produce a structured session log. Use this exact format:
+
+## Files Modified
+- path/to/file (what was changed)
+
+## Decisions Made
+- Decision description
+
+## Key Facts Learned
+- Important facts about the project, codebase, or requirements
+
+## Current State
+- What we're currently working on
+- What's been completed
+- What's pending/next
+
+Omit any section that has no entries. Be concise — bullet points only, no prose. This log will be saved for future reference and will also replace our conversation to free up context space.`;
+
 // ── System prompt builder ──
 
 function buildSystemPrompt(
@@ -84,6 +197,7 @@ function buildSystemPrompt(
   fileTree: string,
   projectContext?: string,
   lastSession?: string,
+  sessionIndex?: string,
 ): string {
   const parts = [
     'You are a helpful coding assistant with full access to the file system and shell.',
@@ -99,6 +213,15 @@ function buildSystemPrompt(
 
   if (lastSession) {
     parts.push('', '--- Previous Session ---', lastSession);
+  }
+
+  if (sessionIndex) {
+    parts.push(
+      '', '--- Session Memory ---',
+      'Previous session logs are saved in .myuru/sessions/. If the user references something',
+      'you don\'t have context for, use search_content or read_file on .myuru/sessions/ to find it.',
+      'Session index:', sessionIndex,
+    );
   }
 
   parts.push('', `Working directory: ${cwd}`, '', 'Project files:', fileTree);
@@ -137,6 +260,46 @@ function printSessionSummary(usage: UsageSummary): void {
   console.log(`\n\x1b[90m  Session: ${usage.totalTokens} tokens | ${usage.stepCount} steps | $${usage.estimatedCostUsd.toFixed(4)}\x1b[0m\n`);
 }
 
+// ── Compact logic (shared between /compact and auto-compact) ──
+
+async function performCompact(
+  agent: Agent,
+  messages: unknown[],
+  sessionUsage: UsageSummary,
+  cwd: string,
+): Promise<{ success: boolean; prevCount: number; filename?: string }> {
+  const prevCount = messages.length;
+
+  const summaryMessages = [
+    ...messages,
+    { role: 'user' as const, content: EXTRACTION_PROMPT },
+  ];
+
+  const result = await agent.chat(summaryMessages as any);
+  const structuredSummary = result.text;
+
+  // Save full structured log to .myuru/sessions/
+  const filename = saveSessionLog(cwd, structuredSummary, prevCount, sessionUsage);
+
+  // Replace conversation with the compacted summary
+  messages.length = 0;
+  messages.push(
+    { role: 'user' as const, content: 'Here is a summary of our conversation so far (full log saved to .myuru/sessions/):' },
+    { role: 'assistant' as const, content: structuredSummary },
+  );
+
+  // Track the compact call's own usage
+  if (result.usage) {
+    sessionUsage.totalInputTokens += result.usage.totalInputTokens;
+    sessionUsage.totalOutputTokens += result.usage.totalOutputTokens;
+    sessionUsage.totalTokens += result.usage.totalTokens;
+    sessionUsage.estimatedCostUsd += result.usage.estimatedCostUsd;
+    sessionUsage.stepCount += result.usage.stepCount;
+  }
+
+  return { success: true, prevCount, filename };
+}
+
 // ── Main command ──
 
 export async function chatCommand(opts: ChatOpts): Promise<void> {
@@ -157,7 +320,9 @@ export async function chatCommand(opts: ChatOpts): Promise<void> {
   const fileTree = scanDirectory(cwd, 2);
   const projectCtx = findProjectContext(cwd);
   const lastSession = loadLastSession(cwd);
-  const systemPrompt = buildSystemPrompt(cwd, fileTree, projectCtx?.content, lastSession);
+  const sessionIndex = loadSessionIndex(cwd);
+  const contextLimit = getContextLimit(modelName);
+  const systemPrompt = buildSystemPrompt(cwd, fileTree, projectCtx?.content, lastSession, sessionIndex);
 
   const agent = Agent.create({
     name: 'myuru',
@@ -182,12 +347,15 @@ export async function chatCommand(opts: ChatOpts): Promise<void> {
   if (lastSession) {
     console.log('  \x1b[32mLoaded last session context\x1b[0m');
   }
+  if (sessionIndex) {
+    console.log('  \x1b[32mLoaded session memory index\x1b[0m');
+  }
   console.log(`  Tools: ${builtinTools.map(t => t.toolName).join(', ')}`);
   console.log('');
   console.log('  \x1b[90mTry: "list all TODO comments in this project"');
   console.log('       "explain what src/index.ts does"');
   console.log('       "find and fix any TypeScript errors"');
-  console.log('  Commands: /help /clear /compact /cost /exit\x1b[0m');
+  console.log('  Commands: /help /clear /compact /history /cost /exit\x1b[0m');
   console.log('');
 
   // ── Session state ──
@@ -203,6 +371,7 @@ export async function chatCommand(opts: ChatOpts): Promise<void> {
   // Streaming state for Ctrl+C cancellation
   let currentAbort: AbortController | null = null;
   let isStreaming = false;
+  let autoCompactWarned = false;
 
   // ── REPL ──
   const rl = readline.createInterface({
@@ -244,7 +413,10 @@ export async function chatCommand(opts: ChatOpts): Promise<void> {
       }
 
       if (cmd === '/cost') {
-        printSessionSummary(sessionUsage);
+        const estTokens = estimateContextTokens(messages, systemPrompt.length);
+        const pct = Math.round((estTokens / contextLimit) * 100);
+        console.log(`\n\x1b[90m  Session: ${sessionUsage.totalTokens} tokens | ${sessionUsage.stepCount} steps | $${sessionUsage.estimatedCostUsd.toFixed(4)}`);
+        console.log(`  Context: ~${estTokens.toLocaleString()} / ${contextLimit.toLocaleString()} tokens (~${pct}%)\x1b[0m\n`);
         rl.prompt();
         return;
       }
@@ -258,6 +430,7 @@ export async function chatCommand(opts: ChatOpts): Promise<void> {
 
       if (cmd === '/clear') {
         messages.length = 0;
+        autoCompactWarned = false;
         console.log('\n  \x1b[33mConversation cleared.\x1b[0m\n');
         rl.prompt();
         return;
@@ -268,8 +441,9 @@ export async function chatCommand(opts: ChatOpts): Promise<void> {
         console.log('  \x1b[36mCommands:\x1b[0m');
         console.log('    /help     Show this help');
         console.log('    /clear    Clear conversation history');
-        console.log('    /compact  Summarize conversation to save context');
-        console.log('    /cost     Show session cost and token usage');
+        console.log('    /compact  Save & compress conversation (preserves to .myuru/sessions/)');
+        console.log('    /history  Show session memory index');
+        console.log('    /cost     Show session cost, token usage, and context fill');
         console.log('    /models   Show current model and available providers');
         console.log('    /exit     Exit (also: /quit, Ctrl+D)');
         console.log('');
@@ -277,6 +451,22 @@ export async function chatCommand(opts: ChatOpts): Promise<void> {
         console.log('    Ctrl+C    Cancel current response');
         console.log('    Ctrl+D    Exit');
         console.log('');
+        console.log('  \x1b[36mMemory:\x1b[0m');
+        console.log('    .myuru.md            Project context (loaded every session)');
+        console.log('    .myuru/last-session.md  Auto-saved at exit, loaded at start');
+        console.log('    .myuru/sessions/     Structured logs from /compact (searchable)');
+        console.log('');
+        rl.prompt();
+        return;
+      }
+
+      if (cmd === '/history') {
+        const index = loadSessionIndex(cwd);
+        if (!index) {
+          console.log('\n  \x1b[90mNo session logs yet. Use /compact to save one.\x1b[0m\n');
+        } else {
+          console.log(`\n${index}\n`);
+        }
         rl.prompt();
         return;
       }
@@ -288,36 +478,12 @@ export async function chatCommand(opts: ChatOpts): Promise<void> {
           return;
         }
 
-        console.log('\n  \x1b[33mCompacting conversation...\x1b[0m');
+        console.log('\n  \x1b[33mCompacting — extracting structured log and saving...\x1b[0m');
         try {
-          const compactPrompt =
-            'Summarize our conversation so far in concise bullet points. ' +
-            'Include: key topics, files modified, decisions made, and current state. ' +
-            'This replaces the conversation history to save context.';
-
-          const prevCount = messages.length;
-          const summaryMessages = [
-            ...messages,
-            { role: 'user' as const, content: compactPrompt },
-          ];
-
-          const result = await agent.chat(summaryMessages as any);
-
-          messages.length = 0;
-          messages.push(
-            { role: 'user' as const, content: 'Summary of our conversation so far:' },
-            { role: 'assistant' as const, content: result.text },
-          );
-
-          if (result.usage) {
-            sessionUsage.totalInputTokens += result.usage.totalInputTokens;
-            sessionUsage.totalOutputTokens += result.usage.totalOutputTokens;
-            sessionUsage.totalTokens += result.usage.totalTokens;
-            sessionUsage.estimatedCostUsd += result.usage.estimatedCostUsd;
-            sessionUsage.stepCount += result.usage.stepCount;
-          }
-
-          console.log(`  \x1b[32mCompacted: ${prevCount} messages → 2\x1b[0m\n`);
+          const result = await performCompact(agent, messages, sessionUsage, cwd);
+          autoCompactWarned = false;
+          console.log(`  \x1b[32mSaved to .myuru/sessions/${result.filename}\x1b[0m`);
+          console.log(`  \x1b[32mCompacted: ${result.prevCount} messages → 2\x1b[0m\n`);
         } catch (err: any) {
           console.error(`\n\x1b[31m  Compact failed: ${err.message}\x1b[0m\n`);
         }
@@ -377,12 +543,23 @@ export async function chatCommand(opts: ChatOpts): Promise<void> {
       const cost = (chatResult?.usage.estimatedCostUsd ?? 0).toFixed(4);
       const session = sessionUsage.estimatedCostUsd.toFixed(4);
       process.stdout.write(`\n\n\x1b[90m  ${tokens} tokens | $${cost} | session: $${session}\x1b[0m\n\n`);
+
+      // ── Auto-compact warning ──
+      if (!autoCompactWarned) {
+        const estTokens = estimateContextTokens(messages, systemPrompt.length);
+        const fillPct = estTokens / contextLimit;
+        if (fillPct >= 0.75) {
+          const pct = Math.round(fillPct * 100);
+          console.log(`  \x1b[33m⚠ Context is ~${pct}% full (~${estTokens.toLocaleString()} tokens).`);
+          console.log(`    Run /compact to save and compress. Your session log will be preserved.\x1b[0m\n`);
+          autoCompactWarned = true;
+        }
+      }
     } catch (err: any) {
       isStreaming = false;
       currentAbort = null;
 
       if (err.name === 'AbortError') {
-        // Ctrl+C cancelled — remove the unanswered user message
         if (messages.length > 0 && (messages[messages.length - 1] as any).role === 'user') {
           messages.pop();
         }

@@ -10,7 +10,7 @@ const program = new Command();
 program
   .name('myuru')
   .description('AI agent with file system and shell access. Works with any provider.')
-  .version('2.0.0-alpha.5');
+  .version('2.0.0-alpha.6');
 
 program
   .command('chat', { isDefault: true })
